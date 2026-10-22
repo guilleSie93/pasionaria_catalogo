@@ -40,10 +40,11 @@
       li{
         a{
           text-decoration: none;
-          color: #333;
+          color: #434300;
           font-weight: bold;
+          transition: .5s;
           &:hover{
-            color: #007BFF;
+            color: #696902;
           }
         }
       }

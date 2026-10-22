@@ -164,7 +164,21 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { iniciarTourCarrito } from '../composables/useTour';
+
+let tourActivo = null;
+
+onMounted(async () => {
+  await nextTick();
+  tourActivo = iniciarTourCarrito();
+});
+
+onBeforeUnmount(() => {
+  if (tourActivo?.isActive()) {
+    tourActivo.destroy();
+  }
+});
 
 const WHATSAPP_NUMERO = '543416919142';
 

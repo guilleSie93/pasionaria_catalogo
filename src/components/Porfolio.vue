@@ -106,8 +106,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import Papa from 'papaparse';
+import { iniciarTourCatalogo } from '@/composables/useTour';
+
+const router = useRouter();
 
 // Configuración de Google Sheets.
 const SHEET_ID = '1nrigbBPineizC9bzYxhpiCUphGnZTDJbPGz5LP0BxWY';
@@ -128,20 +132,6 @@ const categoriaActiva = ref('');
 const confirmaciones = ref({});
 const temporizadoresConfirmacion = {};
 const TIEMPO_CONFIRMACION = 3000;
-
-const categorias = [
-  'Frutas secas',
-  'Semillas',
-  'Cereales y Avenas',
-  'Granix',
-  'Especias',
-  'Harinas',
-  'Legumbres',
-  'Productos sin TACC',
-  'Barritas de cereal',
-  'Premezclas Keto',
-  'Pastas de Mani'
-];
 
 const nombresProductos = computed(() =>
   productos.value.map((producto) => producto.nombre)
@@ -171,6 +161,23 @@ const esFueraDeCatalogo = (producto) =>
   normalizar(producto.categoria)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') === 'fuera de catalogo';
+
+// Categorías dinámicas: salen de los productos cargados desde el Sheet,
+// en el orden en que aparecen y sin repetirse. Como los productos
+// "fuera de catálogo" ya se descartan al cargar, esa categoría no aparece.
+const categorias = computed(() => {
+  const unicas = new Map();
+
+  productos.value.forEach((producto) => {
+    const clave = normalizar(producto.categoria);
+
+    if (clave && !unicas.has(clave)) {
+      unicas.set(clave, producto.categoria);
+    }
+  });
+
+  return [...unicas.values()];
+});
 
 // Formatea los precios en pesos argentinos.
 const formatearPrecio = (valor) => {
@@ -344,9 +351,35 @@ watch(
   { deep: true }
 );
 
-// Carga los productos al montar el componente.
-onMounted(() => {
-  cargarProductos();
+// Tour de bienvenida: durante el paso "Agregar" suma al carrito
+// el primer producto visible, para que el carrito no quede vacío.
+let tourActivo = null;
+
+const agregarProductoEjemplo = () => {
+  const primerProducto = productosFiltrados.value[0];
+
+  if (primerProducto) {
+    agregarAlCarrito(primerProducto);
+  }
+};
+
+// Carga los productos al montar el componente
+// y, si es la primera visita, muestra el tour.
+onMounted(async () => {
+  await cargarProductos();
+  await nextTick();
+
+  tourActivo = iniciarTourCatalogo({
+    router,
+    agregarEjemplo: agregarProductoEjemplo
+  });
+});
+
+// Si se sale de la página con el tour abierto, se cierra.
+onBeforeUnmount(() => {
+  if (tourActivo?.isActive()) {
+    tourActivo.destroy();
+  }
 });
 </script>
 
@@ -361,7 +394,7 @@ onMounted(() => {
     position: relative;
     padding-inline: 1.5rem;
     padding-block: 1rem;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0px 8px 2px rgba(0, 0, 0, 0.1);
     border-radius: 5px;
     min-width: 0;
 
@@ -396,12 +429,15 @@ onMounted(() => {
 
       &_actions {
         display: flex;
-        flex-flow: row wrap;
+        flex-flow: row nowrap;
         justify-content: space-between;
         align-items: center;
         gap: 1rem;
         margin-top: auto;
         padding-top: 1rem;
+        @media (max-width: 1024px) {
+          flex-flow: column-reverse nowrap;
+        }
       }
 
       &_buy {
@@ -424,6 +460,10 @@ onMounted(() => {
       display: flex;
       flex-flow: row nowrap;
       gap: 1rem;
+      @media (max-width: 1024px) {
+        flex-flow: column nowrap;
+      }
+      
     }
     .product-porfolio_search {
       width: 100%;
@@ -486,6 +526,44 @@ onMounted(() => {
 @media (max-width: 600px) {
   .product-porfolio {
     grid-template-columns: 1fr;
+  }
+}
+</style>
+
+<!-- Estilos globales (sin scoped): el tour se dibuja fuera del componente
+     y se usa tanto en el catálogo como en el carrito. -->
+<style lang="scss">
+.driver-popover.tour-pasionaria {
+  .driver-popover-title {
+    color: #292900;
+  }
+
+  .driver-popover-footer button {
+    background-color: #434300;
+    color: #fff;
+    text-shadow: none;
+    border: 1px solid #434300;
+    border-radius: 5px;
+
+    &:hover,
+    &:focus {
+      background-color: #777700;
+      border-color: #777700;
+      color: #fff;
+    }
+
+    // Botón "Omitir" del mensaje de bienvenida.
+    &.tour-omitir {
+      background-color: #fff;
+      color: #434300;
+
+      &:hover,
+      &:focus {
+        background-color: #f7f7ef;
+        border-color: #434300;
+        color: #434300;
+      }
+    }
   }
 }
 </style>

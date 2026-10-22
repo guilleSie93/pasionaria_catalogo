@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "driver.js": "^1.10.2",
     "papaparse": "^5.7.0",
     "vue": "rc",
     "vue-router": "^5.4.0",
