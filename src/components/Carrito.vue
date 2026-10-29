@@ -430,6 +430,9 @@ const enviarPedido = () => {
   const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
 
   window.open(url, '_blank', 'noopener,noreferrer');
+  carrito.value = [];
+  cliente.value = { nombre: '', telefono: '', formaPago: '' };
+  errorFormulario.value = '';
 };
 </script>
 
